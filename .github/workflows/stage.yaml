@@ -1,71 +1,57 @@
+---
 name: Deploy stage
-
-on: 
+on:
   pull_request:
     branches:
       - stage
   push:
     branches:
-      - stage      
-
-permissions:
-  contents: read
-
+      - stage
 jobs:
-  deploy:
-    name: CD Pipeline stage
+  build:
+    name: CD  Pipeline stage
     runs-on: ubuntu-latest
-    
-    defaults:
-      run:
-        working-directory: ./terraform
-
-    steps: 
-      - name: Checkout
+    defaults: null
+    run:
+      working-directory: .terraform
+    steps:
+      - name: Check out code
         uses: actions/checkout@v4
-
-      # --- PASSO ADICIONADO: Instala o Terraform no Runner ---
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Configure AWS credentials stage  
+      - name: Setup terraform
+        uses: hashcorp/setup-terraform@v3
+        with: null
+      - name: Credential aws
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_STAGE }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_STAGE }}
           aws-region: us-east-1
-
-      - name: Terraform Init    
-        run: terraform init -reconfigure -backend-config=../config/backend/stage.tfbackend
-
-      - name: Terraform Validate    
+      - name: Terraform Init
+        run: terraform init -reconfigue
+          -backend-config=../config/backend/stage.tfbackend
+      - name: Terraform Validate
         run: terraform validate
-
-      - name: Terraform Format    
+      - name: Terraform Format
         run: terraform fmt -recursive
-
       - name: Terraform Plan
-        id: plan
-        if: github.event_name == 'pull_request'    
-        run: terraform plan -no-color
-
+        if: github.event_name = 'pull_request'
+        id: terraform-plan
+        run: terraform plan --no-color
       - name: Terraform Apply
-        id: apply
-        if: github.event_name == 'push' && github.ref == 'refs/heads/stage'    
+        if: github.event_name = 'push' && github.ref == 'ref/heads/stage'
+        id: terraform-apply
         run: terraform apply -input=false -auto-approve
-
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
-
+          node-version: 15.5.1
+          cache: npm
       - name: Build React App
-        working-directory: ./
+        workdir-directory: ./
         run: |
           npm install
           npm run build
-
-      - name: Sync to S3 Stage
+      - name: Sync to s3
         working-directory: ./
-        if: github.event_name == 'push' && github.ref == 'refs/heads/stage'
-        run: aws s3 sync ./build s3://react-app-app-wf-default --delete        
+        if: github.event_name = 'push' && github.ref == 'ref/heads/stage'
+        run: aws s3 sync ./build s3://react-app-wf-default
