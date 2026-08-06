@@ -33,7 +33,7 @@ jobs:
           aws-region: us-east-1
 
       - name: Terraform Init
-        run:  terraform init -reconfigue -backend-config=../config/backend/devel.tfbackend
+        run:  terraform init -reconfigure -backend-config=../config/backend/devel.tfbackend
 
       - name: Terraform Validate
         run: terraform validate
@@ -43,12 +43,10 @@ jobs:
 
       - name: Terraform Plan
         if: github.event_name = 'pull_request'
-        id: terraform-plan
         run: terraform plan --no-color
 
       - name: Terraform Apply
-        if:  github.event_name = 'push' && github.ref == 'ref/heads/devel'
-        id: terraform-apply
+        if:  github.event_name = 'push' && github.ref == 'refs/heads/devel'
         run: terraform apply -input=false -auto-approve
 
 
@@ -66,5 +64,5 @@ jobs:
 
       - name: Sync to s3
         working-directory: ./
-        if: github.event_name = 'push' && github.ref == 'ref/heads/devel'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/devel'
         run: aws s3 sync ./build s3://react-app-wf-default --delete
