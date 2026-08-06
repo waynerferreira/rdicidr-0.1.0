@@ -1,4 +1,4 @@
-name: Deploy devel
+name: Deploy Devel
 
 on: 
   pull_request:
@@ -6,63 +6,66 @@ on:
       - devel
   push:
     branches:
-      - devel
+      - devel      
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
-    name: CD  Pipeline Devel
+    name: CD Pipeline Devel
     runs-on: ubuntu-latest
-
+    
     defaults:
       run:
-        working-directory: .terraform
+        working-directory: ./terraform
 
     steps: 
-      - name: Check out code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup terraform
+      # --- PASSO ADICIONADO: Instala o Terraform no Runner ---
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
-        with:
 
-      - name: Credential aws
+      - name: Configure AWS credentials devel  
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_DEVEL }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEVEL }}
           aws-region: us-east-1
 
-      - name: Terraform Init
-        run:  terraform init -reconfigure -backend-config=../config/backend/devel.tfbackend
+      - name: Terraform Init    
+        run: terraform init -reconfigure -backend-config=../config/backend/devel.tfbackend
 
-      - name: Terraform Validate
+      - name: Terraform Validate    
         run: terraform validate
 
-      - name: Terraform Format
+      - name: Terraform Format    
         run: terraform fmt -recursive
 
       - name: Terraform Plan
-        if: github.event_name = 'pull_request'
-        run: terraform plan --no-color
+        id: plan
+        if: github.event_name == 'pull_request'    
+        run: terraform plan -no-color
 
       - name: Terraform Apply
-        if:  github.event_name = 'push' && github.ref == 'refs/heads/devel'
+        id: apply
+        if: github.event_name == 'push' && github.ref == 'refs/heads/devel'    
         run: terraform apply -input=false -auto-approve
 
-
-      - name: Set up Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '15.5.1'
-          cache: 'npm'
+          node-version-file: '.nvmrc'
 
       - name: Build React App
-        workdir-directory: ./
+        working-directory: ./
         run: |
           npm install
           npm run build
 
-      - name: Sync to s3
+      - name: Sync to S3 Devel
         working-directory: ./
         if: github.event_name == 'push' && github.ref == 'refs/heads/devel'
-        run: aws s3 sync ./build s3://react-app-wf-default --delete
+        run: aws s3 sync ./build s3://react-app-app-wf-default --delete        
