@@ -1,0 +1,70 @@
+name: Deploy devel
+
+on: 
+  pull_request:
+    branches:
+      - devel
+  push:
+    branches:
+      - devel
+
+jobs:
+  build:
+    name: CD  Pipeline Devel
+    runs-on: ubuntu-latest
+
+    defaults:
+    run:
+      working-directory: .terraform
+
+    steps: 
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Setup terraform
+        uses: hashcorp/setup-terraform@v3
+        with:
+
+      - name: Credential aws
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_DEVEL }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEVEL }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        run:  terraform init -reconfigue -backend-config=../config/backend/devel.tfbackend
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Format
+        run: terraform fmt -recursive
+
+      - name: Terraform Plan
+        if: github.event_name = 'pull_request'
+        id: terraform-plan
+        run: terraform plan --no-color
+
+      - name: Terraform Apply
+        if:  github.event_name = 'push' && github.ref == 'ref/heads/devel'
+        id: terraform-apply
+        run: terraform apply -input=false -auto-approve
+
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '15.5.1'
+          cache: 'npm'
+
+      - name: Build React App
+        workdir-directory: ./
+        run: |
+          npm install
+          npm run build
+
+      - name: Sync to s3
+        working-directory: ./
+        if: github.event_name = 'push' && github.ref == 'ref/heads/devel'
+        run: aws s3 sync ./build s3://react-app-wf-default --delete
