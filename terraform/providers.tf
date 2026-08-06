@@ -19,7 +19,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Environment = "wf-$terraform.workspace}"
+      Environment = "wf-${terraform.workspace}"
       Project     = var.project_name
       ManageBy    = "Terraform"
     }
